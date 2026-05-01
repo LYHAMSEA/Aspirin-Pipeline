@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1: Builder — install dependencies into a virtual env
 # ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -23,7 +23,7 @@ RUN pip install --upgrade pip setuptools wheel && \
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Runtime — lean image with only what's needed to run
 # ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 LABEL org.opencontainers.image.title="ChemOps API"
 LABEL org.opencontainers.image.description="Git-Driven CI/CD Pipeline for Autonomous Laboratory Orchestration"
