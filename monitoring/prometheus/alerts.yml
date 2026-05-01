@@ -1,0 +1,135 @@
+groups:
+
+  - name: chemops.reactor
+    rules:
+
+      # ── Temperature alerts ──────────────────────────────────────────────
+      - alert: ReactorOvertemperature
+        expr: chemops_reactor_temperature_celsius > 250
+        for: 1m
+        labels:
+          severity: critical
+          team: chemops
+        annotations:
+          summary: "Reactor {{ $labels.reactor_id }} overtemperature"
+          description: >
+            Reactor {{ $labels.reactor_id }} has been above 250 °C for more than 1 minute.
+            Current temperature: {{ $value | printf "%.1f" }} °C.
+            Immediate shutdown may be required.
+
+      - alert: ReactorTemperatureHigh
+        expr: chemops_reactor_temperature_celsius > 200
+        for: 5m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Reactor {{ $labels.reactor_id }} temperature elevated"
+          description: >
+            Reactor {{ $labels.reactor_id }} temperature is {{ $value | printf "%.1f" }} °C,
+            above the 200 °C warning threshold.
+
+      - alert: ReactorTemperatureUnderRange
+        expr: chemops_reactor_temperature_celsius < -10
+        for: 2m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Reactor {{ $labels.reactor_id }} temperature below expected range"
+          description: >
+            Reactor {{ $labels.reactor_id }} temperature dropped to
+            {{ $value | printf "%.1f" }} °C — possible coolant system fault.
+
+      # ── pH alerts ───────────────────────────────────────────────────────
+      - alert: ReactorPHCritical
+        expr: chemops_reactor_ph < 1 or chemops_reactor_ph > 13
+        for: 2m
+        labels:
+          severity: critical
+          team: chemops
+        annotations:
+          summary: "Reactor {{ $labels.reactor_id }} pH critical: {{ $value | printf \"%.2f\" }}"
+          description: >
+            pH has exceeded safe operating limits (1–13).
+            Immediate investigation required.
+
+      - alert: ReactorPHWarning
+        expr: chemops_reactor_ph < 1.5 or chemops_reactor_ph > 12
+        for: 5m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Reactor {{ $labels.reactor_id }} pH out of normal range"
+          description: "pH = {{ $value | printf \"%.2f\" }}. Normal range: 1.5–12."
+
+  - name: chemops.pipeline
+    rules:
+
+      # ── Active run metrics ──────────────────────────────────────────────
+      - alert: TooManyActiveRuns
+        expr: chemops_active_runs > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "{{ $value }} active protocol runs (threshold: 5)"
+          description: >
+            An unusually high number of concurrent runs may indicate
+            a run-loop bug or uncontrolled batch submission.
+
+      - alert: HighStepFailureRate
+        expr: |
+          rate(chemops_steps_total{status="failure"}[10m])
+          /
+          (rate(chemops_steps_total[10m]) + 0.001) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Step failure rate above 10% for protocol {{ $labels.protocol }}"
+          description: >
+            Failure rate: {{ $value | printf "%.1%%" }} over the last 10 minutes.
+            Investigate instrument connectivity or reagent quality.
+
+      - alert: LowProductYield
+        expr: chemops_product_yield_percent < 60
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Product yield {{ $value | printf \"%.1f\" }}% — below 60% threshold"
+          description: >
+            A yield below 60% may indicate reagent degradation,
+            temperature control issues, or a process drift.
+
+  - name: chemops.api
+    rules:
+
+      # ── Service availability ────────────────────────────────────────────
+      - alert: ChemOpsAPIDown
+        expr: up{job="chemops-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: chemops
+        annotations:
+          summary: "ChemOps API is unreachable"
+          description: >
+            Prometheus cannot reach the ChemOps API scrape endpoint.
+            All laboratory automation is suspended until connectivity is restored.
+
+      - alert: SensorStale
+        expr: time() - chemops_sensor_last_seen_timestamp > 120
+        for: 2m
+        labels:
+          severity: warning
+          team: chemops
+        annotations:
+          summary: "Sensor {{ $labels.sensor_id }} has not reported in 2 minutes"
+          description: >
+            Sensor {{ $labels.sensor_id }} last seen at
+            {{ $value | humanizeTimestamp }}. Possible hardware fault.

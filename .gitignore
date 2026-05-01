@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+*.env
+.env.local
+.env.*.local
+
+# Monitoring data (local volumes)
+prometheus-data/
+grafana-data/
+
+# Logs
+*.log
+logs/
+
+# Secrets — never commit these
+secrets/
+*.pem
+*.key
+*.crt

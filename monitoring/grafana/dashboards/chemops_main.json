@@ -1,0 +1,170 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "ChemOps — Autonomous Laboratory Orchestration Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Protocol Runs",
+      "id": 1,
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [{ "expr": "chemops_active_runs", "legendFormat": "Active runs" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "steps": [
+            { "color": "green", "value": 0 },
+            { "color": "yellow", "value": 3 },
+            { "color": "red", "value": 6 }
+          ]}
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Protocol Runs — Total Success",
+      "id": 2,
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [{ "expr": "sum(chemops_protocol_runs_total{outcome=\"success\"})", "legendFormat": "Success" }],
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "green", "mode": "fixed" } } }
+    },
+    {
+      "type": "stat",
+      "title": "Protocol Runs — Total Failed",
+      "id": 3,
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [{ "expr": "sum(chemops_protocol_runs_total{outcome=\"failed\"})", "legendFormat": "Failed" }],
+      "options": { "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "red", "mode": "fixed" } } }
+    },
+    {
+      "type": "gauge",
+      "title": "Reactor Temperature (°C)",
+      "id": 4,
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "chemops_reactor_temperature_celsius{reactor_id=\"reactor-01\"}", "legendFormat": "Temperature" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0, "max": 300,
+          "thresholds": { "steps": [
+            { "color": "blue", "value": 0 },
+            { "color": "green", "value": 20 },
+            { "color": "yellow", "value": 150 },
+            { "color": "red", "value": 250 }
+          ]}
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Reactor pH",
+      "id": 5,
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "chemops_reactor_ph{reactor_id=\"reactor-01\"}", "legendFormat": "pH" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 14,
+          "thresholds": { "steps": [
+            { "color": "red", "value": 0 },
+            { "color": "yellow", "value": 1 },
+            { "color": "green", "value": 4 },
+            { "color": "green", "value": 9 },
+            { "color": "yellow", "value": 12 },
+            { "color": "red", "value": 13 }
+          ]}
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Reactor Temperature Over Time",
+      "id": 6,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{
+        "expr": "chemops_reactor_temperature_celsius",
+        "legendFormat": "{{ reactor_id }}"
+      }],
+      "fieldConfig": { "defaults": { "unit": "celsius", "custom": { "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Reactor pH Over Time",
+      "id": 7,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [{
+        "expr": "chemops_reactor_ph",
+        "legendFormat": "{{ reactor_id }}"
+      }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 14, "custom": { "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Step Execution Rate (steps/min)",
+      "id": 8,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "rate(chemops_steps_total{status=\"success\"}[5m]) * 60",
+          "legendFormat": "Success — {{ protocol }}/{{ step }}"
+        },
+        {
+          "expr": "rate(chemops_steps_total{status=\"failure\"}[5m]) * 60",
+          "legendFormat": "Failure — {{ protocol }}/{{ step }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Product Yield % (running average)",
+      "id": 9,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [{
+        "expr": "chemops_product_yield_percent",
+        "legendFormat": "Yield % — {{ protocol }}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": { "steps": [
+            { "color": "red", "value": 0 },
+            { "color": "yellow", "value": 60 },
+            { "color": "green", "value": 80 }
+          ]},
+          "custom": { "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "type": "heatmap",
+      "title": "Step Duration Distribution (seconds)",
+      "id": 10,
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "targets": [{
+        "expr": "sum(rate(chemops_step_duration_seconds_bucket[10m])) by (le)",
+        "legendFormat": "{{ le }}"
+      }]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["chemops", "laboratory", "aspirin"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ChemOps — Lab Orchestration",
+  "uid": "chemops-main-v1",
+  "version": 1
+}

@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: "chemops"
+    environment: "development"
+
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+scrape_configs:
+
+  # ChemOps API — primary metrics endpoint
+  - job_name: "chemops-api"
+    static_configs:
+      - targets: ["chemops-api:8000"]
+    metrics_path: "/metrics"
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,92 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ChemOps full-stack: API  ·  Prometheus  ·  Grafana
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  chemops-net:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+services:
+
+  # ─── ChemOps API ────────────────────────────────────────────────────────
+  chemops-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: chemops:latest
+    container_name: chemops-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      CHEMOPS_REACTOR_ID: "reactor-01"
+      CHEMOPS_LOG_LEVEL: "info"
+      PYTHONUNBUFFERED: "1"
+    networks:
+      - chemops-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=false"
+
+  # ─── Prometheus ─────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: chemops-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    networks:
+      - chemops-net
+    depends_on:
+      chemops-api:
+        condition: service_healthy
+
+  # ─── Grafana ────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: chemops-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: chemops_dev   # change in production!
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_INSTALL_PLUGINS: "grafana-clock-panel"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - chemops-net
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

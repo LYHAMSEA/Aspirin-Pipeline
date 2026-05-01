@@ -1,0 +1,144 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "chemops"
+version = "1.0.0"
+description = "Git-Driven CI/CD Pipeline for Autonomous Laboratory Orchestration"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["chemistry", "laboratory", "automation", "devops", "cicd"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "prometheus-client>=0.20.0",
+    "pydantic>=2.7.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "anyio>=4.4.0",
+]
+lint = [
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "bandit>=1.7.0",
+]
+
+[project.scripts]
+chemops = "chemops.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chemops*"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m not integration')",
+    "slow: marks tests as slow",
+]
+addopts = "-v --tb=short"
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+source = ["chemops"]
+omit = ["tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+# ---------------------------------------------------------------------------
+# Ruff (linter + formatter)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["chemops", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "ANN",  # flake8-annotations (type hints)
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented-out code)
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "ANN101",  # Missing type annotation for `self`
+    "ANN102",  # Missing type annotation for `cls`
+    "ANN401",  # Dynamically typed expressions (Any) are disallowed
+    "ERA001",  # Found commented-out code (allow in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "S101"]
+"chemops/cli.py" = ["T201"]   # allow print() in CLI
+
+[tool.ruff.lint.isort]
+known-first-party = ["chemops"]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------------
+# Bandit (security linter)
+# ---------------------------------------------------------------------------
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]   # allow assert in tests

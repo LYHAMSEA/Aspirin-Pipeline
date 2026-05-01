@@ -1,0 +1,257 @@
+name: ChemOps CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 1: Lint — ruff, mypy, bandit, chemops-linter
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install lint dependencies
+        run: pip install ".[lint]"
+
+      - name: Ruff — lint
+        run: ruff check chemops/ tests/ --output-format=github
+
+      - name: Ruff — format check
+        run: ruff format --check chemops/ tests/
+
+      - name: Mypy — type check
+        run: mypy chemops/
+
+      - name: Bandit — security scan
+        run: bandit -r chemops/ -c pyproject.toml
+
+      - name: ChemOps protocol linter
+        run: python linting/chemops_linter.py chemops/protocols/ --strict
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 2: Test — unit + integration, with coverage
+# ─────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install ".[dev]"
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ \
+            --cov=chemops \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -m "not integration"
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ \
+            --cov=chemops \
+            --cov-report=xml \
+            --cov-append \
+            -m integration \
+            --timeout=120
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == env.PYTHON_VERSION
+        with:
+          files: coverage.xml
+          flags: unittests
+          name: chemops-coverage
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 3: Build Docker image (all branches)
+# ─────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 4: Security scan (Trivy) — runs on every push/PR
+# ─────────────────────────────────────────────────────────────────────────────
+  security-scan:
+    name: Container security scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 5: Deploy to staging (main branch only)
+# ─────────────────────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.chemops.example.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/chemops
+            docker compose pull chemops-api
+            docker compose up -d --no-deps chemops-api
+            docker compose exec -T chemops-api curl -f http://localhost:8000/healthz
+            echo "Staging deploy complete ✓"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Job 6: Release (tagged versions only)
+# ─────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog from git log
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            CHANGES=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            CHANGES=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD)
+          fi
+          echo "CHANGES<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            ## ChemOps ${{ github.ref_name }}
+
+            ### Changes
+            ${{ steps.changelog.outputs.CHANGES }}
+
+            ### Docker image
+            ```
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ```
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}
