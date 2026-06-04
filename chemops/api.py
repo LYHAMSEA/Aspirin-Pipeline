@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -40,9 +41,13 @@ logger = logging.getLogger(__name__)
 orchestrator: Orchestrator
 sensor_registry: SensorRegistry
 
+# Store background tasks so they are not garbage-collected mid-run
+# FIX: RUF006 — keep a reference to every created task
+_background_tasks: set[asyncio.Task[ProtocolRun]] = set()
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # FIX: ANN201
     global orchestrator, sensor_registry
     orchestrator = Orchestrator(reactor_id="reactor-01")
     sensor_registry = build_default_registry()
@@ -77,7 +82,7 @@ class RunResponse(BaseModel):
     started_at: float
     completed_at: float | None = None
     final_yield: float | None = None
-    steps: list[dict] = []
+    steps: list[dict[str, Any]] = []
 
     @classmethod
     def from_run(cls, run: ProtocolRun) -> "RunResponse":
@@ -107,17 +112,17 @@ class RunResponse(BaseModel):
 
 
 @app.get("/healthz", tags=["ops"])
-async def healthz():
+async def healthz() -> dict[str, str]:  # FIX: ANN201
     return {"status": "ok"}
 
 
 @app.get("/readyz", tags=["ops"])
-async def readyz():
+async def readyz() -> dict[str, str]:  # FIX: ANN201
     return {"status": "ready", "reactor": orchestrator.reactor_id}
 
 
 @app.post("/runs", response_model=RunResponse, tags=["runs"])
-async def create_run(req: RunRequest):
+async def create_run(req: RunRequest) -> RunResponse:  # FIX: ANN201
     """Start a new protocol run (non-blocking — returns immediately)."""
     if req.protocol not in SUPPORTED_PROTOCOLS:
         raise HTTPException(
@@ -131,15 +136,17 @@ async def create_run(req: RunRequest):
     else:
         raise HTTPException(status_code=422, detail="Protocol not implemented")
 
-    # Fire-and-forget — client polls /runs/{run_id} for status
-    run_task = asyncio.create_task(
+    # FIX: F841 + RUF006 — store the task reference in the module-level set
+    # so it is not garbage-collected while still running.
+    task: asyncio.Task[ProtocolRun] = asyncio.create_task(
         orchestrator.execute_protocol(req.protocol, steps, req.metadata)
     )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
-    # Wait briefly so we can return an initial run object
+    # Wait briefly so we can return an initial run object with the run_id
     await asyncio.sleep(0.1)
 
-    # Try to get the created run from the orchestrator
     runs = orchestrator.all_runs()
     if runs:
         latest = max(runs, key=lambda r: r.started_at)
@@ -149,12 +156,12 @@ async def create_run(req: RunRequest):
 
 
 @app.get("/runs", response_model=list[RunResponse], tags=["runs"])
-async def list_runs():
+async def list_runs() -> list[RunResponse]:  # FIX: ANN201
     return [RunResponse.from_run(r) for r in orchestrator.all_runs()]
 
 
 @app.get("/runs/{run_id}", response_model=RunResponse, tags=["runs"])
-async def get_run(run_id: str):
+async def get_run(run_id: str) -> RunResponse:  # FIX: ANN201
     run = orchestrator.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
@@ -162,13 +169,13 @@ async def get_run(run_id: str):
 
 
 @app.get("/sensors", tags=["sensors"])
-async def get_sensor_readings():
+async def get_sensor_readings() -> dict[str, Any]:  # FIX: ANN201
     readings = await sensor_registry.poll_all()
     return {r.sensor_id: r.as_dict() for r in readings}
 
 
 @app.get("/metrics", response_class=PlainTextResponse, tags=["ops"])
-async def metrics():
+async def metrics() -> PlainTextResponse:  # FIX: ANN201
     """Prometheus scrape endpoint."""
     return PlainTextResponse(
         generate_latest().decode("utf-8"),
