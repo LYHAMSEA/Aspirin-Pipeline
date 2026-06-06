@@ -15,7 +15,7 @@ from chemops.sensors.instruments import (
 
 
 @pytest.mark.asyncio
-async def test_temperature_sensor_reads_near_base():
+async def test_temperature_sensor_reads_near_base() -> None:
     sensor = SimulatedTemperatureSensor("t1", base_temp=85.0, noise=0.01)
     reading = await sensor.read()
     assert 84.0 <= reading.value <= 86.0
@@ -24,8 +24,8 @@ async def test_temperature_sensor_reads_near_base():
 
 
 @pytest.mark.asyncio
-async def test_ph_sensor_clamped_to_valid_range():
-    # Set base near boundary — noise should not exceed 0–14
+async def test_ph_sensor_clamped_to_valid_range() -> None:
+    # Base near boundary; noise must not push value outside 0-14 (plain hyphen)
     sensor = SimulatedPHSensor("ph1", base_ph=0.1, noise=0.01)
     for _ in range(20):
         r = await sensor.read()
@@ -33,7 +33,7 @@ async def test_ph_sensor_clamped_to_valid_range():
 
 
 @pytest.mark.asyncio
-async def test_pressure_sensor_non_negative():
+async def test_pressure_sensor_non_negative() -> None:
     sensor = SimulatedPressureSensor("p1", base_pressure=0.5, noise=0.1)
     for _ in range(10):
         r = await sensor.read()
@@ -41,7 +41,7 @@ async def test_pressure_sensor_non_negative():
 
 
 @pytest.mark.asyncio
-async def test_balance_tare():
+async def test_balance_tare() -> None:
     balance = SimulatedBalance("bal1", expected_mass=14.0)
     reading_before = await balance.read()
     assert reading_before.value > 0
@@ -51,7 +51,7 @@ async def test_balance_tare():
 
 
 @pytest.mark.asyncio
-async def test_sensor_registry_poll_all():
+async def test_sensor_registry_poll_all() -> None:
     reg = SensorRegistry()
     reg.register(SimulatedTemperatureSensor("t-a", base_temp=25.0))
     reg.register(SimulatedPHSensor("ph-a", base_ph=7.0))
@@ -62,13 +62,13 @@ async def test_sensor_registry_poll_all():
 
 
 @pytest.mark.asyncio
-async def test_default_registry_has_five_sensors():
+async def test_default_registry_has_five_sensors() -> None:
     reg = build_default_registry()
     assert len(reg.all_ids()) == 5
 
 
 @pytest.mark.asyncio
-async def test_read_and_record_returns_reading():
+async def test_read_and_record_returns_reading() -> None:
     sensor = SimulatedTemperatureSensor("t2", base_temp=60.0)
     reading = await sensor.read_and_record()
     assert reading.sensor_id == "t2"
