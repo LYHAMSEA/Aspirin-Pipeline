@@ -157,7 +157,7 @@ class Orchestrator:
     ) -> ProtocolRun:
         """
         Execute a named protocol composed of (step_name, coroutine_factory) pairs.
-  
+
         Parameters
         ----------
         protocol_name:
