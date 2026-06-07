@@ -14,6 +14,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 from prometheus_client import Gauge
 
@@ -48,7 +49,7 @@ class SensorReading:
     unit: str
     timestamp: float
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sensor_id": self.sensor_id,
             "value": self.value,
