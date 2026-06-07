@@ -130,7 +130,7 @@ class ProtocolRun:
 class Orchestrator:
     """
     Asynchronous protocol orchestrator.
- 
+
     Executes ordered lists of callable steps, records telemetry, and
     streams metrics to Prometheus throughout the run.
     """
@@ -157,7 +157,7 @@ class Orchestrator:
     ) -> ProtocolRun:
         """
         Execute a named protocol composed of (step_name, coroutine_factory) pairs.
- 
+  
         Parameters
         ----------
         protocol_name:
@@ -166,7 +166,7 @@ class Orchestrator:
             Ordered list of ``(name, async_callable)`` pairs.
         metadata:
             Arbitrary key/value data stored on the run record.
- 
+
         Returns
         -------
         ProtocolRun
