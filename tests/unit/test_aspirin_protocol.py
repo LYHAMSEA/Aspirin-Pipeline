@@ -78,8 +78,8 @@ async def test_dry_and_weigh_yield_pct() -> None:
 async def test_quality_control_passes_when_conditions_met() -> None:
     """QC passes when melting point is in range and FeCl3 test is negative."""
     with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
-        mock_rng.gauss.return_value = 0.0       # MP = 135.0 + 0.0 = 135.0 (in range)
-        mock_rng.random.return_value = 0.5      # 0.5 > 0.03 → FeCl3 negative
+        mock_rng.gauss.return_value = 0.0  # MP = 135.0 + 0.0 = 135.0 (in range)
+        mock_rng.random.return_value = 0.5  # 0.5 > 0.03 → FeCl3 negative
         result = await quality_control()
     assert result["qc_status"] == "PASSED"
     assert result["melting_point_c"] == 135.0
@@ -90,8 +90,8 @@ async def test_quality_control_passes_when_conditions_met() -> None:
 async def test_quality_control_fails_on_bad_melting_point() -> None:
     """QC raises ValueError when melting point is outside 134.5-136.5 range."""
     with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
-        mock_rng.gauss.return_value = 5.0       # MP = 135.0 + 5.0 = 140.0 (out of range)
-        mock_rng.random.return_value = 0.5      # FeCl3 negative — only MP fails
+        mock_rng.gauss.return_value = 5.0  # MP = 135.0 + 5.0 = 140.0 (out of range)
+        mock_rng.random.return_value = 0.5  # FeCl3 negative — only MP fails
         with pytest.raises(ValueError, match="MP out of range"):
             await quality_control()
 
@@ -100,8 +100,8 @@ async def test_quality_control_fails_on_bad_melting_point() -> None:
 async def test_quality_control_fails_on_fecl3_positive() -> None:
     """QC raises ValueError when FeCl3 test is positive (salicylic acid impurity)."""
     with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
-        mock_rng.gauss.return_value = 0.0       # MP in range — only FeCl3 fails
-        mock_rng.random.return_value = 0.0      # 0.0 < 0.03 → FeCl3 positive
+        mock_rng.gauss.return_value = 0.0  # MP in range — only FeCl3 fails
+        mock_rng.random.return_value = 0.0  # 0.0 < 0.03 → FeCl3 positive
         with pytest.raises(ValueError, match="FeCl3 test positive"):
             await quality_control()
 
