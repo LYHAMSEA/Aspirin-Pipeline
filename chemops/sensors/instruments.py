@@ -73,13 +73,9 @@ class Sensor(ABC):
 
     async def read_and_record(self) -> SensorReading:
         reading = await self.read()
-        SENSOR_READING.labels(
-            sensor_id=self.sensor_id, unit=self.unit
-        ).set(reading.value)
+        SENSOR_READING.labels(sensor_id=self.sensor_id, unit=self.unit).set(reading.value)
         SENSOR_LAST_SEEN.labels(sensor_id=self.sensor_id).set(reading.timestamp)
-        logger.debug(
-            "Sensor %s → %.4f %s", self.sensor_id, reading.value, self.unit
-        )
+        logger.debug("Sensor %s → %.4f %s", self.sensor_id, reading.value, self.unit)
         return reading
 
 

@@ -26,7 +26,7 @@ from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
-from chemops.core.orchestrator import Orchestrator, ProtocolRun, RunStatus
+from chemops.core.orchestrator import Orchestrator, ProtocolRun
 from chemops.protocols.aspirin_synthesis import get_aspirin_protocol
 from chemops.sensors.instruments import SensorRegistry, build_default_registry
 
@@ -87,7 +87,7 @@ class RunResponse(BaseModel):
     steps: list[dict[str, Any]] = []
 
     @classmethod
-    def from_run(cls, run: ProtocolRun) -> "RunResponse":
+    def from_run(cls, run: ProtocolRun) -> RunResponse:
         return cls(
             run_id=run.run_id,
             protocol=run.protocol_name,
@@ -129,8 +129,7 @@ async def create_run(req: RunRequest) -> RunResponse:  # FIX: ANN201
     if req.protocol not in SUPPORTED_PROTOCOLS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown protocol '{req.protocol}'. "
-                   f"Supported: {sorted(SUPPORTED_PROTOCOLS)}",
+            detail=f"Unknown protocol '{req.protocol}'. Supported: {sorted(SUPPORTED_PROTOCOLS)}",
         )
 
     if req.protocol == "aspirin_synthesis":
