@@ -5,14 +5,17 @@ Manages protocol execution, equipment coordination, and telemetry streaming.
 """
  
 from __future__ import annotations
- 
+
 import asyncio
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import StrEnum  # FIX: UP042 — use StrEnum directly (Python 3.11+)
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
  
 from prometheus_client import Counter, Gauge, Histogram, Summary
  
@@ -99,7 +102,7 @@ class StepResult:
     duration_s: float
     data: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
- 
+
  
 @dataclass
 class ProtocolRun:
