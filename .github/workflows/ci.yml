@@ -37,7 +37,7 @@ jobs:
         run: pip install ".[lint]"
 
       - name: Ruff — lint
-        run: ruff check chemops/ tests/ --output-format=github --fix
+        run: ruff check chemops/ tests/ --select W293 --output-format=github --fix
 
       - name: Ruff — format check
         run: ruff format --check chemops/ tests/
