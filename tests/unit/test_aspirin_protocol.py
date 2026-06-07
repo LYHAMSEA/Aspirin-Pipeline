@@ -74,16 +74,20 @@ async def test_dry_and_weigh_yield_pct() -> None:
 
 @pytest.mark.asyncio
 async def test_quality_control_passes_most_of_time() -> None:
-    """QC should pass in the vast majority of random runs."""
+    """QC should pass in the vast majority of random runs.
+
+    At 97% pass rate over 50 trials, the probability of getting
+    fewer than 40 passes is astronomically small (< 0.0001%).
+    """
     passes = 0
-    for _ in range(20):
+    for _ in range(50):
         try:
             await quality_control()
             passes += 1
         except ValueError:
             pass
-    # Statistically, at least 15/20 should pass (97% pass rate)
-    assert passes >= 15
+    # 50 trials at 97% pass rate — expect ~48.5 passes, floor at 40
+    assert passes >= 40
 
 
 def test_protocol_step_count() -> None:

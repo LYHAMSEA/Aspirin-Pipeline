@@ -58,7 +58,12 @@ addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["chemops"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "chemops/api.py",      # requires running FastAPI server — covered in integration
+    "chemops/cli.py",      # requires CLI invocation — covered in integration
+    "chemops/config.py",   # pydantic settings — tested via env vars in integration
+]
 
 [tool.coverage.report]
 show_missing = true
