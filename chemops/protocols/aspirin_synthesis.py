@@ -1,10 +1,10 @@
 """
 Aspirin Synthesis Protocol -- acetylsalicylic acid production pipeline.
- 
+
 Reaction:
     Salicylic acid + Acetic anhydride -> Acetylsalicylic acid + Acetic acid
     C7H6O3  +  (CH3CO)2O  ->  C9H8O4  +  CH3COOH
- 
+
 This module defines the ordered list of laboratory steps as async coroutines
 suitable for execution by the ChemOps Orchestrator.
 """
