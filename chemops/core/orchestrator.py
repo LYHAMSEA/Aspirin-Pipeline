@@ -1,6 +1,6 @@
 """
 ChemOps Orchestrator — central engine for autonomous lab pipeline control.
- 
+
 Manages protocol execution, equipment coordination, and telemetry streaming.
 """
  
