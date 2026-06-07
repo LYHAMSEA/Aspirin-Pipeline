@@ -115,6 +115,101 @@ jobs:
           flags: unittests
           name: chemops-coverage
 
+  =============================================================================
+# CI/CD — Docker Build + Push to Docker Hub
+# Drop this job into your .github/workflows/ci.yml
+# after the existing "test" job.
+#
+# Required GitHub Secrets:
+#   DOCKERHUB_USERNAME  → your Docker Hub username (LYHAMSEA)
+#   DOCKERHUB_TOKEN     → Docker Hub access token (NOT your password)
+#                         Create at: hub.docker.com → Account Settings
+#                         → Personal Access Tokens → Generate new token
+# =============================================================================
+
+  build:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Buildx enables multi-architecture builds (amd64 + arm64)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Generate image tags and labels from Git context
+      # On push to main:     lyhamsea/aspirin-pipeline:latest
+      # On version tag v1.0: lyhamsea/aspirin-pipeline:1.0.0
+      #                      lyhamsea/aspirin-pipeline:1.0
+      # On any branch:       lyhamsea/aspirin-pipeline:work (branch name)
+      # On any commit:       lyhamsea/aspirin-pipeline:sha-abc1234
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: lyhamsea/aspirin-pipeline
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+
+      # Log in to Docker Hub using the access token (not password)
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Build and push — multi-arch so it runs on cloud VMs and Apple Silicon
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Pass build metadata into the image labels
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            GIT_SHA=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+          # Cache layers in GitHub Actions cache — dramatically speeds up rebuilds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Build for both Intel/AMD and ARM — works on any cloud provider
+          platforms: linux/amd64,linux/arm64
+
+      # Print a summary to the Actions run page
+      - name: Print image summary
+        run: |
+          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`lyhamsea/aspirin-pipeline\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Pull with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull lyhamsea/aspirin-pipeline:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY        
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Job 6: Release (tagged versions only)
 # ─────────────────────────────────────────────────────────────────────────────
