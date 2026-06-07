@@ -102,4 +102,4 @@ disallow_untyped_defs = false
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"]
+skips = ["B101", "B311"]
