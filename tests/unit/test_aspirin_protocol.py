@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import unittest.mock
+
 import pytest
 
 from chemops.protocols.aspirin_synthesis import (
@@ -73,21 +75,35 @@ async def test_dry_and_weigh_yield_pct() -> None:
 
 
 @pytest.mark.asyncio
-async def test_quality_control_passes_most_of_time() -> None:
-    """QC should pass in the vast majority of random runs.
+async def test_quality_control_passes_when_conditions_met() -> None:
+    """QC passes when melting point is in range and FeCl3 test is negative."""
+    with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
+        mock_rng.gauss.return_value = 0.0       # MP = 135.0 + 0.0 = 135.0 (in range)
+        mock_rng.random.return_value = 0.5      # 0.5 > 0.03 → FeCl3 negative
+        result = await quality_control()
+    assert result["qc_status"] == "PASSED"
+    assert result["melting_point_c"] == 135.0
+    assert result["fecl3_test"] == "negative"
 
-    At 97% pass rate over 50 trials, the probability of getting
-    fewer than 40 passes is astronomically small (< 0.0001%).
-    """
-    passes = 0
-    for _ in range(50):
-        try:
+
+@pytest.mark.asyncio
+async def test_quality_control_fails_on_bad_melting_point() -> None:
+    """QC raises ValueError when melting point is outside 134.5-136.5 range."""
+    with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
+        mock_rng.gauss.return_value = 5.0       # MP = 135.0 + 5.0 = 140.0 (out of range)
+        mock_rng.random.return_value = 0.5      # FeCl3 negative — only MP fails
+        with pytest.raises(ValueError, match="MP out of range"):
             await quality_control()
-            passes += 1
-        except ValueError:
-            pass
-    # 50 trials at 97% pass rate — expect ~48.5 passes, floor at 40
-    assert passes >= 40
+
+
+@pytest.mark.asyncio
+async def test_quality_control_fails_on_fecl3_positive() -> None:
+    """QC raises ValueError when FeCl3 test is positive (salicylic acid impurity)."""
+    with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
+        mock_rng.gauss.return_value = 0.0       # MP in range — only FeCl3 fails
+        mock_rng.random.return_value = 0.0      # 0.0 < 0.03 → FeCl3 positive
+        with pytest.raises(ValueError, match="FeCl3 test positive"):
+            await quality_control()
 
 
 def test_protocol_step_count() -> None:
