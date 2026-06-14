@@ -1,0 +1,29 @@
+# =============================================================================
+# Kustomize — applies all manifests with one command:
+#   kubectl apply -k k8s/base
+#
+# To override the image tag per environment without editing files:
+#   kubectl apply -k k8s/base --image-tag-suffix=...
+# (or use the images: section below, set via CI)
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: chemops
+
+resources:
+  - namespace.yaml
+  - configmap-app.yaml
+  - api-deployment.yaml
+  - ../configmaps/prometheus-config.yaml
+  - prometheus.yaml
+  - ../configmaps/grafana-provisioning.yaml
+  - grafana.yaml
+  - ingress.yaml
+
+# secret-template.yaml and the dashboard ConfigMap are intentionally NOT
+# listed here — they are created separately via kubectl (see migration steps)
+
+images:
+  - name: lyhamsea/aspirin-pipeline
+    newTag: latest   # <-- CI overwrites this with the release tag

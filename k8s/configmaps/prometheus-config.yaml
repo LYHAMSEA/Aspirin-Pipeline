@@ -1,0 +1,117 @@
+# =============================================================================
+# Prometheus configuration — content copied from monitoring/prometheus/*.yml
+# In Docker Compose these were bind-mounted files; in k8s they become ConfigMaps
+# mounted as files inside the Prometheus pod.
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: chemops
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        project: "chemops"
+        environment: "production"
+
+    rule_files:
+      - "/etc/prometheus/alerts.yml"
+
+    scrape_configs:
+      - job_name: "chemops-api"
+        static_configs:
+          # Kubernetes Service DNS name: <service>.<namespace>.svc.cluster.local
+          - targets: ["chemops-api.chemops.svc.cluster.local:8000"]
+        metrics_path: "/metrics"
+        scrape_interval: 10s
+
+      - job_name: "prometheus"
+        static_configs:
+          - targets: ["localhost:9090"]
+
+  alerts.yml: |
+    groups:
+      - name: chemops.reactor
+        rules:
+          - alert: ReactorOvertemperature
+            expr: chemops_reactor_temperature_celsius > 250
+            for: 1m
+            labels:
+              severity: critical
+              team: chemops
+            annotations:
+              summary: "Reactor {{ $labels.reactor_id }} overtemperature"
+              description: "Temperature is {{ $value | printf \"%.1f\" }} C"
+
+          - alert: ReactorTemperatureHigh
+            expr: chemops_reactor_temperature_celsius > 200
+            for: 5m
+            labels:
+              severity: warning
+              team: chemops
+            annotations:
+              summary: "Reactor {{ $labels.reactor_id }} temperature elevated"
+              description: "Temperature is {{ $value | printf \"%.1f\" }} C, above 200C warning threshold"
+
+          - alert: ReactorPHCritical
+            expr: chemops_reactor_ph < 1 or chemops_reactor_ph > 13
+            for: 2m
+            labels:
+              severity: critical
+              team: chemops
+            annotations:
+              summary: "Reactor {{ $labels.reactor_id }} pH critical: {{ $value | printf \"%.2f\" }}"
+              description: "pH exceeded safe operating limits (1-13)"
+
+      - name: chemops.pipeline
+        rules:
+          - alert: TooManyActiveRuns
+            expr: chemops_active_runs > 5
+            for: 2m
+            labels:
+              severity: warning
+              team: chemops
+            annotations:
+              summary: "{{ $value }} active protocol runs (threshold: 5)"
+
+          - alert: HighStepFailureRate
+            expr: |
+              rate(chemops_steps_total{status="failure"}[10m])
+              / (rate(chemops_steps_total[10m]) + 0.001) > 0.10
+            for: 5m
+            labels:
+              severity: warning
+              team: chemops
+            annotations:
+              summary: "Step failure rate above 10% for protocol {{ $labels.protocol }}"
+
+          - alert: LowProductYield
+            expr: chemops_product_yield_percent < 60
+            labels:
+              severity: warning
+              team: chemops
+            annotations:
+              summary: "Product yield {{ $value | printf \"%.1f\" }}% - below 60% threshold"
+
+      - name: chemops.api
+        rules:
+          - alert: ChemOpsAPIDown
+            expr: up{job="chemops-api"} == 0
+            for: 1m
+            labels:
+              severity: critical
+              team: chemops
+            annotations:
+              summary: "ChemOps API is unreachable"
+
+          - alert: SensorStale
+            expr: time() - chemops_sensor_last_seen_timestamp > 120
+            for: 2m
+            labels:
+              severity: warning
+              team: chemops
+            annotations:
+              summary: "Sensor {{ $labels.sensor_id }} has not reported in 2 minutes"

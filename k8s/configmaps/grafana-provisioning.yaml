@@ -1,0 +1,43 @@
+# =============================================================================
+# Grafana provisioning configs
+# Content copied directly from monitoring/grafana/provisioning/
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: chemops
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        # Kubernetes Service DNS — same pattern as the Prometheus scrape target
+        url: http://prometheus.chemops.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+        jsonData:
+          timeInterval: "10s"
+          httpMethod: POST
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: chemops
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: ChemOps
+        orgId: 1
+        folder: ChemOps
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards

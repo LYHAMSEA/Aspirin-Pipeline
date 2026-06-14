@@ -1,0 +1,64 @@
+# =============================================================================
+# Ingress — single entry point for all three services
+# Requires an ingress controller installed in the cluster (e.g. ingress-nginx)
+#
+# Install ingress-nginx (one-time, cluster-wide):
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
+#
+# Requires cert-manager for automatic HTTPS (optional but recommended):
+#   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chemops-ingress
+  namespace: chemops
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"   # remove if not using cert-manager
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - chemops.example.com
+        - grafana.chemops.example.com
+        - prometheus.chemops.example.com
+      secretName: chemops-tls
+  rules:
+    # API — chemops.example.com -> chemops-api:8000
+    - host: chemops.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chemops-api
+                port:
+                  number: 8000
+
+    # Grafana — grafana.chemops.example.com -> grafana:3000
+    - host: grafana.chemops.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+
+    # Prometheus — prometheus.chemops.example.com -> prometheus:9090
+    # Consider removing this in production or protecting with basic auth —
+    # Prometheus has no built-in authentication.
+    - host: prometheus.chemops.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090

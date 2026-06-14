@@ -1,0 +1,84 @@
+# =============================================================================
+# ChemOps API — Deployment + Service
+# Equivalent to the chemops-api service in docker-compose.yml
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chemops-api
+  namespace: chemops
+  labels:
+    app: chemops-api
+spec:
+  replicas: 2                      # docker-compose ran 1 container; k8s gives you 2 for HA
+  selector:
+    matchLabels:
+      app: chemops-api
+  template:
+    metadata:
+      labels:
+        app: chemops-api
+    spec:
+      containers:
+        - name: chemops-api
+          image: lyhamsea/aspirin-pipeline:latest   # <-- update to a version tag in production
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+
+          # ---- Environment from ConfigMap + Secret ----
+          envFrom:
+            - configMapRef:
+                name: chemops-config
+            - secretRef:
+                name: chemops-secrets
+
+          # ---- Liveness probe: maps to Dockerfile HEALTHCHECK ----
+          # If this fails repeatedly, Kubernetes RESTARTS the container.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---- Readiness probe: NEW — Docker Compose had no equivalent ----
+          # If this fails, Kubernetes STOPS sending traffic to this pod
+          # but does NOT restart it. Used during rolling updates.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # ---- Resource requests/limits — REQUIRED in k8s, optional in compose ----
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chemops-api
+  namespace: chemops
+  labels:
+    app: chemops-api
+spec:
+  selector:
+    app: chemops-api
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP    # internal only — exposed externally via Ingress

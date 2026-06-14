@@ -1,0 +1,28 @@
+# =============================================================================
+# Non-secret application configuration
+# Equivalent to the CHEMOPS_* values in your .env file (excluding secrets)
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chemops-config
+  namespace: chemops
+data:
+  CHEMOPS_REACTOR_ID: "reactor-01"
+  CHEMOPS_ENV: "production"
+  CHEMOPS_LOG_LEVEL: "info"
+  CHEMOPS_HOST: "0.0.0.0"
+  CHEMOPS_WORKERS: "2"
+  CHEMOPS_RELOAD: "false"
+  CHEMOPS_SENSOR_BACKEND: "simulated"
+  CHEMOPS_SENSOR_POLL_INTERVAL_S: "5"
+  CHEMOPS_INSTRUMENT_TIMEOUT_S: "10"
+  CHEMOPS_MAX_TEMP_CELSIUS: "250.0"
+  CHEMOPS_MIN_TEMP_CELSIUS: "-20.0"
+  CHEMOPS_MAX_PH: "13.0"
+  CHEMOPS_MIN_PH: "1.0"
+  CHEMOPS_MAX_CONCURRENT_RUNS: "5"
+  CHEMOPS_YIELD_WARNING_THRESHOLD: "60.0"
+  CHEMOPS_SENSOR_STALE_TIMEOUT_S: "120"
+  CHEMOPS_METRICS_PATH: "/metrics"
+  CHEMOPS_CORS_ORIGINS: "https://chemops.example.com"
