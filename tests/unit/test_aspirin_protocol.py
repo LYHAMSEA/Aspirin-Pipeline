@@ -75,7 +75,6 @@ async def test_dry_and_weigh_yield_pct() -> None:
 
 
 @pytest.mark.asyncio
-
 async def test_quality_control_passes_when_conditions_met() -> None:
     """QC passes when melting point is in range and FeCl3 test is negative."""
     with unittest.mock.patch("chemops.protocols.aspirin_synthesis.random") as mock_rng:
@@ -105,7 +104,6 @@ async def test_quality_control_fails_on_fecl3_positive() -> None:
         mock_rng.random.return_value = 0.0  # 0.0 < 0.03 → FeCl3 positive
         with pytest.raises(ValueError, match="FeCl3 test positive"):
             await quality_control()
-
 
 
 def test_protocol_step_count() -> None:
