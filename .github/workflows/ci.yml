@@ -174,7 +174,7 @@ jobs:
       # Build and push — multi-arch so it runs on cloud VMs and Apple Silicon
       - name: Build and push image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           dockerfile: Dockerfile
