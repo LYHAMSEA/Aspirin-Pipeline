@@ -1,0 +1,23 @@
+# =============================================================================
+# HorizontalPodAutoscaler — automatically scales chemops-api based on CPU load
+# Has NO equivalent in Docker Compose — Compose cannot scale based on metrics
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: chemops-api
+  namespace: chemops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chemops-api
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

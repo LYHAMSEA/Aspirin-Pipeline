@@ -1,8 +1,17 @@
 version: "3.9"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ChemOps full-stack: API  ·  Prometheus  ·  Grafana
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
+# ChemOps full stack — API + Prometheus + Grafana
+#
+# Usage:
+#   Start:   docker compose up --build -d
+#   Stop:    docker compose down
+#   Logs:    docker compose logs -f chemops-api
+#   Rebuild: docker compose up -d --no-deps --build chemops-api
+#
+# Image source: Docker Hub — lyhamsea/aspirin-pipeline
+# Override image tag: CHEMOPS_IMAGE_TAG=v1.0.0 docker compose up -d
+# =============================================================================
 
 networks:
   chemops-net:
@@ -14,20 +23,32 @@ volumes:
 
 services:
 
-  # ─── ChemOps API ────────────────────────────────────────────────────────
+  # ===========================================================================
+  # ChemOps API
+  # ===========================================================================
   chemops-api:
+    # In CI/CD: pulls the pre-built image from Docker Hub
+    # Locally:  builds from source if image not found
+    image: lyhamsea/aspirin-pipeline:${CHEMOPS_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: chemops:latest
+      args:
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+        GIT_SHA: ${GIT_SHA:-unknown}
+        VERSION: ${CHEMOPS_IMAGE_TAG:-dev}
     container_name: chemops-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${CHEMOPS_PORT:-8000}:8000"
+    env_file:
+      - .env
     environment:
-      CHEMOPS_REACTOR_ID: "reactor-01"
-      CHEMOPS_LOG_LEVEL: "info"
+      CHEMOPS_REACTOR_ID: "${CHEMOPS_REACTOR_ID:-reactor-01}"
+      CHEMOPS_LOG_LEVEL: "${CHEMOPS_LOG_LEVEL:-info}"
+      CHEMOPS_SENSOR_BACKEND: "${CHEMOPS_SENSOR_BACKEND:-simulated}"
+      CHEMOPS_SECRET_KEY: "${CHEMOPS_SECRET_KEY}"
       PYTHONUNBUFFERED: "1"
     networks:
       - chemops-net
@@ -37,10 +58,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    labels:
-      - "traefik.enable=false"
 
-  # ─── Prometheus ─────────────────────────────────────────────────────────
+  # ===========================================================================
+  # Prometheus — metrics scraper and time-series database
+  # ===========================================================================
   prometheus:
     image: prom/prometheus:v2.52.0
     container_name: chemops-prometheus
@@ -64,19 +85,22 @@ services:
       chemops-api:
         condition: service_healthy
 
-  # ─── Grafana ────────────────────────────────────────────────────────────
+  # ===========================================================================
+  # Grafana — dashboards and visualisation
+  # ===========================================================================
   grafana:
     image: grafana/grafana:10.4.3
     container_name: chemops-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: chemops_dev   # change in production!
+      GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-chemops_dev}"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_INSTALL_PLUGINS: "grafana-clock-panel"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -90,3 +114,4 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s

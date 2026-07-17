@@ -14,6 +14,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 from prometheus_client import Gauge
 
@@ -48,7 +49,7 @@ class SensorReading:
     unit: str
     timestamp: float
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "sensor_id": self.sensor_id,
             "value": self.value,
@@ -73,13 +74,9 @@ class Sensor(ABC):
 
     async def read_and_record(self) -> SensorReading:
         reading = await self.read()
-        SENSOR_READING.labels(
-            sensor_id=self.sensor_id, unit=self.unit
-        ).set(reading.value)
+        SENSOR_READING.labels(sensor_id=self.sensor_id, unit=self.unit).set(reading.value)
         SENSOR_LAST_SEEN.labels(sensor_id=self.sensor_id).set(reading.timestamp)
-        logger.debug(
-            "Sensor %s → %.4f %s", self.sensor_id, reading.value, self.unit
-        )
+        logger.debug("Sensor %s → %.4f %s", self.sensor_id, reading.value, self.unit)
         return reading
 
 

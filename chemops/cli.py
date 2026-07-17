@@ -50,16 +50,18 @@ async def run_protocol(protocol_name: str, repeat: int = 1) -> int:
             metadata={"cli": True, "iteration": i + 1},
         )
 
-        print(json.dumps(
-            {
-                "run_id": run.run_id,
-                "status": run.status.value,
-                "duration_s": round(run.duration or 0, 2),
-                "steps": len(run.steps),
-                "final_yield": run.final_yield,
-            },
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "run_id": run.run_id,
+                    "status": run.status.value,
+                    "duration_s": round(run.duration or 0, 2),
+                    "steps": len(run.steps),
+                    "final_yield": run.final_yield,
+                },
+                indent=2,
+            )
+        )
 
         if run.status != RunStatus.COMPLETE:
             exit_code = 1

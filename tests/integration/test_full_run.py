@@ -49,9 +49,7 @@ async def test_multiple_sequential_runs():
     orchestrator = Orchestrator(reactor_id="integration-reactor-3")
     for i in range(2):
         steps = get_aspirin_protocol()
-        run = await orchestrator.execute_protocol(
-            "aspirin_synthesis", steps, metadata={"batch": i}
-        )
+        run = await orchestrator.execute_protocol("aspirin_synthesis", steps, metadata={"batch": i})
         assert run.status in {RunStatus.COMPLETE, RunStatus.FAILED}
 
     assert len(orchestrator.all_runs()) == 2

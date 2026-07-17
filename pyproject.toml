@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "chemops"
@@ -31,6 +31,7 @@ dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.3.0",
     "anyio>=4.4.0",
     "aiosqlite>=0.20.0",
 ]
@@ -58,7 +59,12 @@ addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["chemops"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "chemops/api.py",      # requires running FastAPI server — covered in integration
+    "chemops/cli.py",      # requires CLI invocation — covered in integration
+    "chemops/config.py",   # pydantic settings — tested via env vars in integration
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -102,4 +108,4 @@ disallow_untyped_defs = false
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"]
+skips = ["B101", "B311"]

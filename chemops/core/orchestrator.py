@@ -11,10 +11,18 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from prometheus_client import Counter, Gauge, Histogram, Summary
+
+# FIX: TC003 — Callable is only needed for type annotations, move into
+# TYPE_CHECKING block so it is not imported at runtime.
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +78,7 @@ PROTOCOL_RUNS = Counter(
 # ---------------------------------------------------------------------------
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):  # FIX: UP042 — StrEnum replaces (str, Enum)
     PENDING = "pending"
     RUNNING = "running"
     COMPLETE = "complete"
@@ -78,7 +86,7 @@ class StepStatus(str, Enum):
     SKIPPED = "skipped"
 
 
-class RunStatus(str, Enum):
+class RunStatus(StrEnum):  # FIX: UP042
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETE = "complete"
@@ -195,11 +203,7 @@ class Orchestrator:
             run.status = RunStatus.COMPLETE
             run.completed_at = time.time()
             PROTOCOL_RUNS.labels(protocol=protocol_name, outcome="success").inc()
-            logger.info(
-                "Run %s complete in %.1fs",
-                run_id,
-                run.duration,
-            )
+            logger.info("Run %s complete in %.1fs", run_id, run.duration)
             return run
 
         except asyncio.CancelledError:
@@ -214,7 +218,7 @@ class Orchestrator:
             for hook in self._hooks:
                 try:
                     hook(run)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception("Hook raised an unexpected exception")
 
     def get_run(self, run_id: str) -> ProtocolRun | None:
@@ -241,16 +245,11 @@ class Orchestrator:
             duration = time.perf_counter() - start
 
             STEP_DURATION.labels(protocol=protocol, step=step_name).observe(duration)
-            STEP_TOTAL.labels(
-                protocol=protocol, step=step_name, status="success"
-            ).inc()
+            STEP_TOTAL.labels(protocol=protocol, step=step_name, status="success").inc()
 
-            # Push any telemetry embedded in the step result
             if isinstance(data, dict):
                 if "temperature" in data:
-                    TEMPERATURE_GAUGE.labels(
-                        reactor_id=self.reactor_id
-                    ).set(data["temperature"])
+                    TEMPERATURE_GAUGE.labels(reactor_id=self.reactor_id).set(data["temperature"])
                 if "ph" in data:
                     PH_GAUGE.labels(reactor_id=self.reactor_id).set(data["ph"])
                 if "yield_pct" in data:
@@ -264,12 +263,10 @@ class Orchestrator:
                 data=data or {},
             )
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             duration = time.perf_counter() - start
             STEP_DURATION.labels(protocol=protocol, step=step_name).observe(duration)
-            STEP_TOTAL.labels(
-                protocol=protocol, step=step_name, status="failure"
-            ).inc()
+            STEP_TOTAL.labels(protocol=protocol, step=step_name, status="failure").inc()
             logger.exception("Step '%s' raised: %s", step_name, exc)
             return StepResult(
                 step_id=str(uuid.uuid4()),
